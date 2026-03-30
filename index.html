@@ -310,19 +310,23 @@ function enviar() {
             dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
 
+        const payload = {
+            tipo: "hora_extra",
+            cracha: colab.cracha,
+            nome: colab.nome,
+            endereco: colab.endereco, // Garantindo o envio do endereço
+            setor: colab.setor,
+            turno: colab.turno,
+            data: dataFormatada,
+            horario: horarioHE,
+            lider: lider
+        };
+
+        console.log("Enviando dados:", payload); // Log para depuração
+
         return fetch(URL, {
             method: "POST",
-            body: JSON.stringify({
-                tipo: "hora_extra",
-                cracha: colab.cracha,
-                nome: colab.nome,
-                endereco: colab.endereco,
-                setor: colab.setor,
-                turno: colab.turno,
-                data: dataFormatada, // Envia a data selecionada formatada
-                horario: horarioHE,   // Envia o horário selecionado (ex: 12h-18h)
-                lider: lider
-            })
+            body: JSON.stringify(payload)
         }).then(res => {
             if (!res.ok) throw new Error("Status: " + res.status);
             return res;
@@ -357,7 +361,15 @@ function cadastrar() {
             turno: document.getElementById("turnoCad").value
         })
     })
-    .then(() => alert("✅ Funcionário cadastrado"))
+    .then(() => {
+        alert("✅ Funcionário cadastrado");
+        // Resetar os campos após o cadastro
+        document.getElementById("nomeCad").value = "";
+        document.getElementById("crachaCad").value = "";
+        document.getElementById("enderecoCad").value = "";
+        document.getElementById("setorCad").value = "";
+        document.getElementById("turnoCad").value = "";
+    })
     .catch(() => alert("❌ Erro"));
 }
 
