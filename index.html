@@ -41,18 +41,35 @@ body {
     padding: 20px;
 }
 
-input, button {
+input, button, select {
     width: 100%;
     padding: 12px;
     margin-top: 10px;
     border-radius: 8px;
     border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+.row {
+    display: flex;
+    gap: 10px;
+}
+
+.row > * {
+    flex: 1;
 }
 
 button {
     background: #0057B8;
     color: white;
     border: none;
+    transition: transform 0.1s ease, background 0.2s ease;
+    cursor: pointer;
+}
+
+button:active {
+    transform: scale(0.96);
+    background: #004494;
 }
 
 .card {
@@ -70,6 +87,14 @@ button {
     border-radius: 8px;
     margin-bottom: 8px;
     border: 1px solid #eee;
+    transition: all 0.3s ease;
+    border-left: 5px solid #ccc;
+}
+
+.operator-item.selected {
+    background: #e7f3ff;
+    border-left: 5px solid #0057B8;
+    transform: translateX(5px);
 }
 
 .operator-item input[type="checkbox"] {
@@ -78,6 +103,11 @@ button {
     margin-right: 12px;
     margin-top: 2px;
     cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.operator-item input[type="checkbox"]:checked {
+    transform: scale(1.2);
 }
 
 .operator-info {
@@ -104,8 +134,8 @@ button {
 <div class="header">ZF Hora Extra</div>
 
 <div class="tabs">
-    <button class="active" onclick="trocarTela('hora')">Hora Extra</button>
-    <button onclick="trocarTela('cadastro')">Cadastro</button>
+    <button id="btn-hora" class="active" onclick="trocarTela('hora')">Hora Extra</button>
+    <button id="btn-cadastro" onclick="trocarTela('cadastro')">Cadastro</button>
 </div>
 
 <div class="container">
@@ -118,6 +148,17 @@ button {
 <button onclick="buscar()">Buscar</button>
 
 <div id="listaOperadores" style="margin-top: 15px;"></div>
+
+<div class="row">
+    <input type="date" id="dataHE">
+    <select id="horarioHE">
+        <option value="" disabled selected>Selecione o Horário</option>
+        <option value="06h-12h">06h-12h</option>
+        <option value="12h-18h">12h-18h</option>
+        <option value="18h-00h">18h-00h</option>
+        <option value="00h-06h">00h-06h</option>
+    </select>
+</div>
 
 <input type="text" id="lider" placeholder="Nome do líder">
 
@@ -153,6 +194,15 @@ let colaboradoresSelecionados = [];
 function trocarTela(tela) {
     document.getElementById("hora").style.display = tela === "hora" ? "block" : "none";
     document.getElementById("cadastro").style.display = tela === "cadastro" ? "block" : "none";
+    
+    // Atualiza a classe active nos botões
+    if (tela === 'hora') {
+        document.getElementById("btn-hora").classList.add("active");
+        document.getElementById("btn-cadastro").classList.remove("active");
+    } else {
+        document.getElementById("btn-hora").classList.remove("active");
+        document.getElementById("btn-cadastro").classList.add("active");
+    }
 }
 
 // BUSCAR
@@ -188,12 +238,12 @@ function adicionarNaLista(data, cracha) {
 
     const lista = document.getElementById("listaOperadores");
     const item = document.createElement("div");
-    item.className = "operator-item";
+    item.className = "operator-item selected"; // Começa com a classe selected
     item.id = "item-" + cracha;
     
     // Exibe os detalhes completos (nome, setor, turno, endereco)
     item.innerHTML = `
-        <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked)">
+        <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked, this)">
         <div class="operator-info">
             <span>👤 ${data.nome} (${cracha})</span>
             <small>Setor: ${data.setor || '-'} | Turno: ${data.turno || '-'}</small>
@@ -213,20 +263,38 @@ function adicionarNaLista(data, cracha) {
     });
 }
 
-function toggleColaborador(cracha, selecionado) {
+function toggleColaborador(cracha, selecionado, elemento) {
     const index = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
     if (index !== -1) {
         colaboradoresSelecionados[index].selecionado = selecionado;
+        
+        // Adiciona ou remove a classe de destaque visual (selected) no card pai
+        const card = elemento.parentElement;
+        if (selecionado) {
+            card.classList.add("selected");
+        } else {
+            card.classList.remove("selected");
+        }
     }
 }
 
 // ENVIAR HORA EXTRA
 function enviar() {
     const lider = document.getElementById("lider").value;
+    const dataHE = document.getElementById("dataHE").value;
+    const horarioHE = document.getElementById("horarioHE").value;
     const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
 
     if (selecionados.length === 0) {
         alert("⚠️ Selecione pelo menos um funcionário");
+        return;
+    }
+    if (!dataHE) {
+        alert("⚠️ Selecione a data");
+        return;
+    }
+    if (!horarioHE) {
+        alert("⚠️ Selecione o horário");
         return;
     }
     if (!lider) {
@@ -235,6 +303,13 @@ function enviar() {
     }
 
     const promises = selecionados.map(colab => {
+        // Formatar data de YYYY-MM-DD para DD/MM/YYYY
+        let dataFormatada = "";
+        if (dataHE) {
+            const partes = dataHE.split("-");
+            dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
         return fetch(URL, {
             method: "POST",
             body: JSON.stringify({
@@ -244,6 +319,8 @@ function enviar() {
                 endereco: colab.endereco,
                 setor: colab.setor,
                 turno: colab.turno,
+                data: dataFormatada, // Envia a data selecionada formatada
+                horario: horarioHE,   // Envia o horário selecionado (ex: 12h-18h)
                 lider: lider
             })
         }).then(res => {
@@ -258,6 +335,8 @@ function enviar() {
         document.getElementById("listaOperadores").innerHTML = "";
         colaboradoresSelecionados = [];
         document.getElementById("lider").value = "";
+        document.getElementById("dataHE").value = "";
+        document.getElementById("horarioHE").value = "";
     })
     .catch((error) => {
         console.error("Erro no envio:", error);
