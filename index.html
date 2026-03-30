@@ -61,6 +61,41 @@ button {
     border-radius: 10px;
     margin-top: 15px;
 }
+
+.operator-item {
+    display: flex;
+    align-items: flex-start;
+    background: #f9f9f9;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #eee;
+}
+
+.operator-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+    margin-top: 2px;
+    cursor: pointer;
+}
+
+.operator-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.operator-info span {
+    font-size: 14px;
+    font-weight: bold;
+    color: #333;
+}
+
+.operator-info small {
+    font-size: 12px;
+    color: #666;
+}
 </style>
 </head>
 
@@ -79,13 +114,12 @@ button {
 <div id="hora">
 
 <div class="card">
-<input type="text" id="cracha" placeholder="Crachá">
+<input type="number" id="cracha" placeholder="Crachá">
 <button onclick="buscar()">Buscar</button>
 
-<p id="nome"></p>
+<div id="listaOperadores" style="margin-top: 15px;"></div>
 
 <input type="text" id="lider" placeholder="Nome do líder">
-<input type="text" id="motivo" placeholder="Motivo">
 
 <button onclick="enviar()">Confirmar Hora Extra</button>
 </div>
@@ -113,7 +147,7 @@ button {
 
 const URL = "https://script.google.com/macros/s/AKfycbzt1F9ybfU4YP3ZjvXOPQ_pycYVf8HAEjhsZ1ME68d-o5cjThJIUr8ydAZJVaL2jgg/exec";
 
-let nomeColaborador = "";
+let colaboradoresSelecionados = [];
 
 // TROCAR TELA
 function trocarTela(tela) {
@@ -124,32 +158,111 @@ function trocarTela(tela) {
 // BUSCAR
 function buscar() {
     let cracha = document.getElementById("cracha").value;
+    if (!cracha) return;
 
     fetch(URL + "?cracha=" + cracha)
-    .then(res => res.json())
-    .then(data => {
-        nomeColaborador = data.nome;
-        document.getElementById("nome").innerText = "👤 " + nomeColaborador;
+    .then(res => {
+        if (!res.ok) throw new Error("Status: " + res.status);
+        return res.json();
     })
-    .catch(() => {
-        document.getElementById("nome").innerText = "❌ Não encontrado";
+    .then(data => {
+        if (data.nome) {
+            adicionarNaLista(data, cracha); // Passa o objeto completo 'data'
+            document.getElementById("cracha").value = "";
+        } else {
+            alert("❌ Funcionário não encontrado");
+        }
+    })
+    .catch((error) => {
+        console.error("Erro na busca:", error);
+        alert("❌ Erro ao buscar funcionário. O serviço pode estar indisponível ou a cota do Google Scripts excedida.");
     });
+}
+
+function adicionarNaLista(data, cracha) {
+    // Evita duplicados
+    if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
+        alert("⚠️ Funcionário já está na lista");
+        return;
+    }
+
+    const lista = document.getElementById("listaOperadores");
+    const item = document.createElement("div");
+    item.className = "operator-item";
+    item.id = "item-" + cracha;
+    
+    // Exibe os detalhes completos (nome, setor, turno, endereco)
+    item.innerHTML = `
+        <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked)">
+        <div class="operator-info">
+            <span>👤 ${data.nome} (${cracha})</span>
+            <small>Setor: ${data.setor || '-'} | Turno: ${data.turno || '-'}</small>
+            <small>📍 ${data.endereco || '-'}</small>
+        </div>
+    `;
+    
+    lista.appendChild(item);
+    // Armazena todos os detalhes no array
+    colaboradoresSelecionados.push({ 
+        nome: data.nome, 
+        cracha: cracha, 
+        endereco: data.endereco,
+        setor: data.setor,
+        turno: data.turno,
+        selecionado: true 
+    });
+}
+
+function toggleColaborador(cracha, selecionado) {
+    const index = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
+    if (index !== -1) {
+        colaboradoresSelecionados[index].selecionado = selecionado;
+    }
 }
 
 // ENVIAR HORA EXTRA
 function enviar() {
-    fetch(URL, {
-        method: "POST",
-        body: JSON.stringify({
-            tipo: "hora_extra",
-            cracha: document.getElementById("cracha").value,
-            nome: nomeColaborador,
-            lider: document.getElementById("lider").value,
-            motivo: document.getElementById("motivo").value
-        })
+    const lider = document.getElementById("lider").value;
+    const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
+
+    if (selecionados.length === 0) {
+        alert("⚠️ Selecione pelo menos um funcionário");
+        return;
+    }
+    if (!lider) {
+        alert("⚠️ Digite o nome do líder");
+        return;
+    }
+
+    const promises = selecionados.map(colab => {
+        return fetch(URL, {
+            method: "POST",
+            body: JSON.stringify({
+                tipo: "hora_extra",
+                cracha: colab.cracha,
+                nome: colab.nome,
+                endereco: colab.endereco,
+                setor: colab.setor,
+                turno: colab.turno,
+                lider: lider
+            })
+        }).then(res => {
+            if (!res.ok) throw new Error("Status: " + res.status);
+            return res;
+        });
+    });
+
+    Promise.all(promises)
+    .then(() => {
+        alert("✅ Hora extra enviada para todos os selecionados");
+        document.getElementById("listaOperadores").innerHTML = "";
+        colaboradoresSelecionados = [];
+        document.getElementById("lider").value = "";
     })
-    .then(() => alert("✅ Hora extra enviada"))
-    .catch(() => alert("❌ Erro"));
+    .catch((error) => {
+        console.error("Erro no envio:", error);
+        alert("❌ Erro ao enviar algumas horas extras. O serviço (Google Scripts) pode estar temporariamente fora do ar.");
+    });
 }
 
 // CADASTRAR FUNCIONÁRIO
