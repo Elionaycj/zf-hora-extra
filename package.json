@@ -1,0 +1,23 @@
+{
+  "name": "zf-hora-extra",
+  "version": "1.0.0",
+  "description": "ZF Hora Extra - Sistema de gestão de horas extras",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://x-access-token:ghs_g3tFKm2Yb069sWqc1TcIr5CFFzTHDq2XUcup@github.com/Elionaycj/zf-hora-extra.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Elionaycj/zf-hora-extra/issues"
+  },
+  "homepage": "https://github.com/Elionaycj/zf-hora-extra#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
