@@ -23,6 +23,65 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
 .operator-info { display: flex; flex-direction: column; gap: 2px; }
 .operator-info span { font-size: 14px; font-weight: bold; color: #333; }
 .operator-info small { font-size: 12px; color: #666; }
+
+/* Carousel Líderes */
+.leader-carousel {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 10px 0;
+  margin-top: 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.leader-carousel::-webkit-scrollbar { display: none; }
+.leader-item {
+  flex: 0 0 auto;
+  padding: 10px 15px;
+  background: #eee;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  scroll-snap-align: start;
+}
+.leader-item.active {
+  background: #0057B8;
+  color: white;
+  border-color: #004494;
+}
+
+/* Dropdown Líder */
+.leader-select-box {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+}
+.leader-select-box::after {
+  content: "▼";
+  font-size: 10px;
+  color: #666;
+}
+.leader-select-box.open::after {
+  content: "▲";
+}
+.leader-carousel.hidden {
+  display: none;
+}
+
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -67,6 +126,14 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
         <button onclick="buscar()" id="btn-buscar" style="margin-top:10px;">Buscar</button>
       </div>
       <div id="listaOperadores" style="margin-top: 15px;"></div>
+      
+      <div id="leader-trigger" class="leader-select-box" onclick="ui.toggleLeaderSelector()">
+        <span id="selected-leader-name">Selecionar Líder</span>
+      </div>
+      <div id="leader-carousel" class="leader-carousel hidden">
+        <!-- Inserido via JS -->
+      </div>
+      
       <div class="row">
         <input type="date" id="dataHE">
         <select id="horarioHE">
@@ -77,8 +144,7 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
           <option value="00h-06h">00h-06h</option>
         </select>
       </div>
-      <input type="text" id="lider" placeholder="Nome do líder">
-      <button onclick="enviar()" id="btn-enviar">Confirmar Hora Extra</button>
+      <button type="button" onclick="enviar()" id="btn-enviar">Confirmar Hora Extra</button>
     </div>
   </div>
 
@@ -98,118 +164,131 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
 </div>
 
 <script>
-// ================= CONFIG =================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxasc_XR86ySCdYvyecVM1f8vPSzPaMWSTvHIXDVDGpbm-H9bfUWaaYTvis94xfXbY/exec";
+// =====================================================
+// ⚠️ COLE AQUI A URL DO SEU WEB APP (Google Apps Script)
+// Publicar > Implantar como app da Web > Copiar URL
+// =====================================================
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxVitbE9IEKkhR9blxSQWqhclNK4ifuKMByitxNsimLL_CaE0fUEJIX-yf251uqoY/exec";
+const TOKEN = "2503";
 
-// ================= HELPERS =================
-const $ = (id) => document.getElementById(id);
-
-const showError = (msg) => alert("❌ " + msg);
-const showWarning = (msg) => alert("⚠️ " + msg);
-const showSuccess = (msg) => alert("✅ " + msg);
-
-// ================= API =================
+// Helper: envia dados via GET (evita bloqueio de CORS do Apps Script)
 async function chamarScript(params) {
-  const token = localStorage.getItem("token") || "";
-
-  const qs = new URLSearchParams({
-    token,
-    ...params
-  }).toString();
-
+  const qs = new URLSearchParams({ token: TOKEN, ...params }).toString();
   const resp = await fetch(`${SCRIPT_URL}?${qs}`);
   return resp.json();
 }
 
-// ================= LOGIN =================
-window.fazerLogin = async function () {
-  const email = $("email-login").value.trim();
-  const senha = $("senha-login").value;
+// =====================================================
+// LOGIN SIMPLES (lista local de usuários autorizados)
+// =====================================================
+const USUARIOS = {
+  "e": "2503" // email: senha
+  // Adicione mais usuários: "outro@email.com": "senha"
+};
 
-  if (!email || !senha) {
-    return showWarning("Preencha email e senha");
-  }
+const LISTA_LIDERES = ["Willian Nunes", "Cidão Aparecido", "Claudecir", "wili", "Altair", "Roseli"];
 
-  const btn = $("btn-login");
-  btn.innerHTML = "Entrando...";
-  btn.disabled = true;
+let usuarioLogado = null;
+let colaboradoresSelecionados = [];
+let liderSelecionado = "";
 
-  try {
-    const res = await chamarScript({
-      acao: "login",
-      email,
-      senha
-    });
-
-    if (res.erro) {
-      showError(res.erro);
-      return;
-    }
-
-    localStorage.setItem("token", res.token);
-
-    $("login-screen").style.display = "none";
-    $("main-content").style.display = "block";
-
-  } catch {
-    showError("Erro ao conectar com servidor");
-  } finally {
-    btn.innerHTML = "Entrar";
-    btn.disabled = false;
+// UI Helpers
+const ui = {
+  toggleLeaderSelector: function() {
+    const carousel = document.getElementById("leader-carousel");
+    const trigger = document.getElementById("leader-trigger");
+    carousel.classList.toggle("hidden");
+    trigger.classList.toggle("open");
+  },
+  selectLeader: function(nome, itemElement) {
+    document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
+    itemElement.classList.add("active");
+    liderSelecionado = nome;
+    document.getElementById("selected-leader-name").textContent = "Líder: " + nome;
+    this.toggleLeaderSelector(); // Fecha após selecionar
   }
 };
 
-// ================= TROCAR TELA =================
-window.trocarTela = function (tela) {
-  $("hora").style.display = tela === "hora" ? "block" : "none";
-  $("cadastro").style.display = tela === "cadastro" ? "block" : "none";
-
-  $("btn-hora").className = tela === "hora" ? "active" : "";
-  $("btn-cadastro").className = tela === "cadastro" ? "active" : "";
+// Inicializar Carousel
+window.onload = function() {
+  const carousel = document.getElementById("leader-carousel");
+  if (carousel) {
+    LISTA_LIDERES.forEach(nome => {
+      const item = document.createElement("div");
+      item.className = "leader-item";
+      item.textContent = nome;
+      item.onclick = function() {
+        ui.selectLeader(nome, item);
+      };
+      carousel.appendChild(item);
+    });
+  }
 };
 
-// ================= BUSCAR =================
-window.buscar = async function () {
-  const cracha = $("cracha").value.trim();
+window.fazerLogin = function() {
+  const email = document.getElementById("email-login").value.trim();
+  const senha = document.getElementById("senha-login").value;
+  const btn = document.getElementById("btn-login");
 
-  if (!cracha) return showWarning("Digite um crachá");
+  if (USUARIOS[email] && USUARIOS[email] === senha) {
+    usuarioLogado = email;
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("main-content").style.display = "block";
+  } else {
+    btn.textContent = "❌ Login inválido";
+    setTimeout(() => btn.textContent = "Entrar", 2000);
+  }
+};
 
-  const btn = $("btn-buscar");
-  btn.innerHTML = "Buscando...";
+// =====================================================
+// TROCA DE ABAS
+// =====================================================
+window.trocarTela = function(tela) {
+  document.getElementById("hora").style.display = tela === "hora" ? "block" : "none";
+  document.getElementById("cadastro").style.display = tela === "cadastro" ? "block" : "none";
+  document.getElementById("btn-hora").className = tela === "hora" ? "active" : "";
+  document.getElementById("btn-cadastro").className = tela === "cadastro" ? "active" : "";
+};
+
+// =====================================================
+// BUSCAR FUNCIONÁRIO NO APPS SCRIPT
+// =====================================================
+window.buscar = async function() {
+  const cracha = document.getElementById("cracha").value.trim();
+  if (!cracha) { alert("⚠️ Digite um crachá"); return; }
+
+  const btn = document.getElementById("btn-buscar");
+  btn.innerHTML = '<span class="spinner"></span>Buscando...';
   btn.disabled = true;
 
   try {
-    const data = await chamarScript({
-      acao: "buscar",
-      cracha
-    });
+    const data = await chamarScript({ acao: "buscar", cracha });
 
     if (data.erro) {
-      showError(data.erro);
-      return;
+      alert("❌ " + data.erro);
+    } else {
+      adicionarNaLista(data, cracha);
+      document.getElementById("cracha").value = "";
     }
-
-    adicionarNaLista(data, cracha);
-    $("cracha").value = "";
-
-  } catch {
-    showError("Erro de conexão");
+  } catch (e) {
+    alert("❌ Erro de conexão. Verifique a URL do Apps Script.");
+    console.error(e);
   } finally {
     btn.innerHTML = "Buscar";
     btn.disabled = false;
   }
 };
 
-// ================= LISTA =================
-let colaboradoresSelecionados = [];
-
+// =====================================================
+// ADICIONAR OPERADOR NA LISTA
+// =====================================================
 function adicionarNaLista(data, cracha) {
   if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
-    return showWarning("Funcionário já está na lista");
+    alert("⚠️ Funcionário já está na lista");
+    return;
   }
 
-  const lista = $("listaOperadores");
-
+  const lista = document.getElementById("listaOperadores");
   const item = document.createElement("div");
   item.className = "operator-item selected";
   item.id = "item-" + cracha;
@@ -226,44 +305,46 @@ function adicionarNaLista(data, cracha) {
 
   colaboradoresSelecionados.push({
     nome: data.nome,
-    cracha,
+    cracha: cracha,
     setor: data.setor,
     turno: data.turno,
     selecionado: true
   });
 }
 
-// ================= TOGGLE =================
-window.toggleColaborador = function (cracha, selecionado, el) {
-  const colab = colaboradoresSelecionados.find(c => c.cracha === cracha);
-  if (!colab) return;
-
-  colab.selecionado = selecionado;
-  el.parentElement.classList.toggle("selected", selecionado);
+// =====================================================
+// MARCAR / DESMARCAR COLABORADOR
+// =====================================================
+window.toggleColaborador = function(cracha, selecionado, el) {
+  const index = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
+  if (index !== -1) {
+    colaboradoresSelecionados[index].selecionado = selecionado;
+    el.parentElement.classList.toggle("selected", selecionado);
+  }
 };
 
-// ================= ENVIAR =================
-window.enviar = async function () {
-  const lider = $("lider").value.trim();
-  const dataHE = $("dataHE").value;
-  const horarioHE = $("horarioHE").value;
-
+// =====================================================
+// ENVIAR HORA EXTRA
+// =====================================================
+window.enviar = async function() {
+  const lider = liderSelecionado;
+  const dataHE = document.getElementById("dataHE").value;
+  const horarioHE = document.getElementById("horarioHE").value;
   const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
 
-  if (!selecionados.length) return showWarning("Selecione ao menos um funcionário");
-  if (!dataHE) return showWarning("Selecione a data");
-  if (!horarioHE) return showWarning("Selecione o horário");
-  if (!lider) return showWarning("Informe o nome do líder");
+  if (!selecionados.length) { alert("⚠️ Selecione ao menos um funcionário"); return; }
+  if (!dataHE) { alert("⚠️ Selecione a data"); return; }
+  if (!horarioHE) { alert("⚠️ Selecione o horário"); return; }
+  if (!lider) { alert("⚠️ Selecione o Líder no carrossel"); return; }
 
-  const btn = $("btn-enviar");
-  btn.innerHTML = "Enviando...";
+  const btn = document.getElementById("btn-enviar");
+  btn.innerHTML = '<span class="spinner"></span>Enviando...';
   btn.disabled = true;
 
   let erros = 0;
-
   for (const colab of selecionados) {
     try {
-      const res = await chamarScript({
+      const data = await chamarScript({
         acao: "hora_extra",
         cracha: colab.cracha,
         nome: colab.nome,
@@ -273,9 +354,7 @@ window.enviar = async function () {
         data: dataHE,
         horario: horarioHE
       });
-
-      if (res.erro) erros++;
-
+      if (data.erro) erros++;
     } catch {
       erros++;
     }
@@ -285,58 +364,55 @@ window.enviar = async function () {
   btn.disabled = false;
 
   if (erros === 0) {
-    showSuccess(`Hora extra registrada para ${selecionados.length} funcionário(s)`);
-
-    $("listaOperadores").innerHTML = "";
+    alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)`);
+    document.getElementById("listaOperadores").innerHTML = "";
     colaboradoresSelecionados = [];
-
-    $("lider").value = "";
-    $("dataHE").value = "";
-    $("horarioHE").selectedIndex = 0;
-
+    liderSelecionado = "";
+    document.getElementById("selected-leader-name").textContent = "Selecionar Líder";
+    document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
+    document.getElementById("dataHE").value = "";
+    document.getElementById("horarioHE").selectedIndex = 0;
   } else {
-    showWarning(`${erros} falha(s) no envio`);
+    alert(`⚠️ ${erros} registro(s) falharam. Verifique a conexão.`);
   }
 };
 
-// ================= CADASTRO (CORRIGIDO) =================
-window.cadastrar = async function () {
-  const nome = $("nomeCad").value.trim();
-  const cracha = $("crachaCad").value.trim();
-  const endereco = $("enderecoCad").value.trim();
-  const setor = $("setorCad").value.trim();
-  const turno = $("turnoCad").value.trim();
+// =====================================================
+// CADASTRAR FUNCIONÁRIO
+// =====================================================
+window.cadastrar = async function() {
+  const nome = document.getElementById("nomeCad").value.trim();
+  const cracha = document.getElementById("crachaCad").value.trim();
+  const endereco = document.getElementById("enderecoCad").value.trim();
+  const setor = document.getElementById("setorCad").value.trim();
+  const turno = document.getElementById("turnoCad").value.trim();
 
   if (!nome || !cracha || !setor || !turno) {
-    return showWarning("Preencha nome, crachá, setor e turno");
+    alert("⚠️ Preencha nome, crachá, setor e turno");
+    return;
   }
 
-  const btn = $("btn-cadastrar");
-  btn.innerHTML = "Cadastrando...";
+  const btn = document.getElementById("btn-cadastrar");
+  btn.innerHTML = '<span class="spinner"></span>Cadastrando...';
   btn.disabled = true;
 
   try {
-    const res = await chamarScript({
+    const data = await chamarScript({
       acao: "cadastro",
-      nome,
-      cracha,
-      endereco,
-      setor,
-      turno
+      nome, cracha, endereco, setor, turno
     });
 
-    if (res.erro) {
-      showError(res.erro);
-      return;
+    if (data.sucesso) {
+      alert("✅ Funcionário cadastrado com sucesso");
+      ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+    } else {
+      alert("❌ Erro: " + (data.erro || "desconhecido"));
     }
-
-    showSuccess("Funcionário cadastrado com sucesso");
-
-    ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"]
-      .forEach(id => $(id).value = "");
-
-  } catch {
-    showError("Erro ao cadastrar");
+  } catch (e) {
+    alert("❌ Erro de conexão. Verifique a URL do Apps Script.");
+    console.error(e);
   } finally {
     btn.innerHTML = "Cadastrar Funcionário";
     btn.disabled = false;
