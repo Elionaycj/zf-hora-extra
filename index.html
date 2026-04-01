@@ -3,207 +3,324 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZF Hora Extra</title>
-
 <style>
-/* ... Mantendo todos os seus estilos originais ... */
 body { font-family: Arial; margin: 0; background: #f4f6f9; }
 .header { background: #0057B8; color: white; padding: 15px; text-align: center; font-size: 20px; }
 .tabs { display: flex; background: white; }
-.tabs button { flex: 1; padding: 12px; border: none; background: #ddd; font-weight: bold; }
+.tabs button { flex: 1; padding: 12px; border: none; background: #ddd; font-weight: bold; cursor: pointer; }
 .tabs button.active { background: #0057B8; color: white; }
 .container { padding: 20px; }
-input, button, select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+input, button, select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 14px; }
 .row { display: flex; gap: 10px; }
 .row > * { flex: 1; }
 button { background: #0057B8; color: white; border: none; transition: transform 0.1s ease, background 0.2s ease; cursor: pointer; }
 button:active { transform: scale(0.96); background: #004494; }
+button:disabled { background: #999; cursor: not-allowed; transform: none; }
 .card { background: white; padding: 15px; border-radius: 10px; margin-top: 15px; }
 .operator-item { display: flex; align-items: flex-start; background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee; transition: all 0.3s ease; border-left: 5px solid #ccc; }
 .operator-item.selected { background: #e7f3ff; border-left: 5px solid #0057B8; transform: translateX(5px); }
-.operator-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; margin-top: 2px; cursor: pointer; transition: transform 0.2s ease; }
-.operator-item input[type="checkbox"]:checked { transform: scale(1.2); }
+.operator-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
 .operator-info { display: flex; flex-direction: column; gap: 2px; }
 .operator-info span { font-size: 14px; font-weight: bold; color: #333; }
 .operator-info small { font-size: 12px; color: #666; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Login */
+#login-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f6f9; }
+.login-card { background: white; padding: 30px; border-radius: 12px; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+.login-card h2 { color: #0057B8; text-align: center; margin-bottom: 10px; }
 </style>
 </head>
-
 <body>
 
+<!-- TELA DE LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h2>🔐 ZF Hora Extra</h2>
+    <input type="email" id="email-login" placeholder="E-mail">
+    <input type="password" id="senha-login" placeholder="Senha" onkeydown="if(event.key==='Enter') fazerLogin()">
+    <button onclick="fazerLogin()" id="btn-login">Entrar</button>
+  </div>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL (oculto até login) -->
+<div id="main-content" style="display:none;">
+
 <div class="header">ZF Hora Extra</div>
-
 <div class="tabs">
-    <button id="btn-hora" class="active" onclick="trocarTela('hora')">Hora Extra</button>
-    <button id="btn-cadastro" onclick="trocarTela('cadastro')">Cadastro</button>
+  <button id="btn-hora" class="active" onclick="trocarTela('hora')">Hora Extra</button>
+  <button id="btn-cadastro" onclick="trocarTela('cadastro')">Cadastro</button>
 </div>
 
-<div class="container" id="main-content">
-    
-<p style="font-size: 10px; color: #666; text-align: center; margin-top: 20px;">
+<div class="container">
+
+  <p style="font-size: 10px; color: #666; text-align: center; margin-top: 10px;">
     Dados protegidos conforme a LGPD. O processamento limita-se ao necessário para o controle de jornada.
-</p>
+  </p>
 
-<div id="hora">
-<div class="card">
-<input type="number" id="cracha" placeholder="Crachá">
-<button onclick="buscar()">Buscar</button>
-<div id="listaOperadores" style="margin-top: 15px;"></div>
-<div class="row">
-    <input type="date" id="dataHE">
-    <select id="horarioHE">
-        <option value="" disabled selected>Selecione o Horário</option>
-        <option value="06h-12h">06h-12h</option>
-        <option value="12h-18h">12h-18h</option>
-        <option value="18h-00h">18h-00h</option>
-        <option value="00h-06h">00h-06h</option>
-    </select>
-</div>
-<input type="text" id="lider" placeholder="Nome do líder">
-<button onclick="enviar()">Confirmar Hora Extra</button>
-</div>
-</div>
+  <!-- ABA HORA EXTRA -->
+  <div id="hora">
+    <div class="card">
+      <div class="row">
+        <input type="number" id="cracha" placeholder="Crachá" onkeydown="if(event.key==='Enter') buscar()">
+        <button onclick="buscar()" id="btn-buscar" style="margin-top:10px;">Buscar</button>
+      </div>
+      <div id="listaOperadores" style="margin-top: 15px;"></div>
+      <div class="row">
+        <input type="date" id="dataHE">
+        <select id="horarioHE">
+          <option value="" disabled selected>Selecione o Horário</option>
+          <option value="06h-12h">06h-12h</option>
+          <option value="12h-18h">12h-18h</option>
+          <option value="18h-00h">18h-00h</option>
+          <option value="00h-06h">00h-06h</option>
+        </select>
+      </div>
+      <input type="text" id="lider" placeholder="Nome do líder">
+      <button onclick="enviar()" id="btn-enviar">Confirmar Hora Extra</button>
+    </div>
+  </div>
 
-<div id="cadastro" style="display:none;">
-<div class="card">
-<input type="text" id="nomeCad" placeholder="Nome">
-<input type="text" id="crachaCad" placeholder="Crachá">
-<input type="text" id="enderecoCad" placeholder="Endereço">
-<input type="text" id="setorCad" placeholder="Setor">
-<input type="text" id="turnoCad" placeholder="Turno">
-<button onclick="cadastrar()">Cadastrar Funcionário</button>
-</div>
+  <!-- ABA CADASTRO -->
+  <div id="cadastro" style="display:none;">
+    <div class="card">
+      <input type="text" id="nomeCad" placeholder="Nome">
+      <input type="number" id="crachaCad" placeholder="Crachá">
+      <input type="text" id="enderecoCad" placeholder="Endereço">
+      <input type="text" id="setorCad" placeholder="Setor">
+      <input type="text" id="turnoCad" placeholder="Turno">
+      <button onclick="cadastrar()" id="btn-cadastrar">Cadastrar Funcionário</button>
+    </div>
+  </div>
+
 </div>
 </div>
 
 <script>
-const URL = "https://script.google.com/macros/s/AKfycbzt1F9ybfU4YP3ZjvXOPQ_pycYVf8HAEjhsZ1ME68d-o5cjThJIUr8ydAZJVaL2jgg/exec";
-const SECURITY_TOKEN = "2503"; // Deve ser igual ao definido no Apps Script
+// =====================================================
+// ⚠️ COLE AQUI A URL DO SEU WEB APP (Google Apps Script)
+// Publicar > Implantar como app da Web > Copiar URL
+// =====================================================
+const SCRIPT_URL = "https://script.google.com/macros/s/SEU_ID_AQUI/exec";
+const TOKEN = "2503"; // Deve ser igual ao SECURITY_TOKEN do Apps Script
 
+// =====================================================
+// LOGIN SIMPLES (lista local de usuários autorizados)
+// =====================================================
+const USUARIOS = {
+  "Elionaycj2@gmail.com": "2503" // email: senha
+  // Adicione mais usuários: "outro@email.com": "senha"
+};
+
+let usuarioLogado = null;
 let colaboradoresSelecionados = [];
 
-function trocarTela(tela) {
-    document.getElementById("hora").style.display = tela === "hora" ? "block" : "none";
-    document.getElementById("cadastro").style.display = tela === "cadastro" ? "block" : "none";
-    document.getElementById("btn-hora").classList.toggle("active", tela === 'hora');
-    document.getElementById("btn-cadastro").classList.toggle("active", tela === 'cadastro');
-}
+window.fazerLogin = function() {
+  const email = document.getElementById("email-login").value.trim();
+  const senha = document.getElementById("senha-login").value;
+  const btn = document.getElementById("btn-login");
 
-function buscar() {
-    let cracha = document.getElementById("cracha").value;
-    if (!cracha) return;
+  if (USUARIOS[email] && USUARIOS[email] === senha) {
+    usuarioLogado = email;
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("main-content").style.display = "block";
+  } else {
+    btn.textContent = "❌ Login inválido";
+    setTimeout(() => btn.textContent = "Entrar", 2000);
+  }
+};
 
-    // SEGURANÇA: Inclusão do token na requisição
-    fetch(`${URL}?cracha=${cracha}&token=${SECURITY_TOKEN}`)
-    .then(res => res.json())
-    .then(data => {
-        if (data.nome) {
-            adicionarNaLista(data, cracha);
-            document.getElementById("cracha").value = "";
-        } else {
-            alert("❌ Funcionário não encontrado");
-        }
-    })
-    .catch(() => alert("❌ Erro na comunicação segura."));
-}
+// =====================================================
+// TROCA DE ABAS
+// =====================================================
+window.trocarTela = function(tela) {
+  document.getElementById("hora").style.display = tela === "hora" ? "block" : "none";
+  document.getElementById("cadastro").style.display = tela === "cadastro" ? "block" : "none";
+  document.getElementById("btn-hora").className = tela === "hora" ? "active" : "";
+  document.getElementById("btn-cadastro").className = tela === "cadastro" ? "active" : "";
+};
 
+// =====================================================
+// BUSCAR FUNCIONÁRIO NO APPS SCRIPT
+// =====================================================
+window.buscar = async function() {
+  const cracha = document.getElementById("cracha").value.trim();
+  if (!cracha) { alert("⚠️ Digite um crachá"); return; }
+
+  const btn = document.getElementById("btn-buscar");
+  btn.innerHTML = '<span class="spinner"></span>Buscando...';
+  btn.disabled = true;
+
+  try {
+    const url = `${SCRIPT_URL}?token=${TOKEN}&cracha=${encodeURIComponent(cracha)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (data.erro) {
+      alert("❌ " + data.erro);
+    } else {
+      adicionarNaLista(data, cracha);
+      document.getElementById("cracha").value = "";
+    }
+  } catch (e) {
+    alert("❌ Erro de conexão. Verifique a URL do Apps Script.");
+    console.error(e);
+  } finally {
+    btn.innerHTML = "Buscar";
+    btn.disabled = false;
+  }
+};
+
+// =====================================================
+// ADICIONAR OPERADOR NA LISTA
+// =====================================================
 function adicionarNaLista(data, cracha) {
-    if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
-        alert("⚠️ Funcionário já está na lista");
-        return;
-    }
+  if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
+    alert("⚠️ Funcionário já está na lista");
+    return;
+  }
 
-    const lista = document.getElementById("listaOperadores");
-    const item = document.createElement("div");
-    item.className = "operator-item selected";
-    item.id = "item-" + cracha;
-    
-    // MINIMIZAÇÃO: Endereço não é exibido visualmente na lista por privacidade
-    item.innerHTML = `
-        <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked, this)">
-        <div class="operator-info">
-            <span>👤 ${data.nome} (${cracha})</span>
-            <small>Setor: ${data.setor || '-'} | Turno: ${data.turno || '-'}</small>
-        </div>
-    `;
-    
-    lista.appendChild(item);
-    colaboradoresSelecionados.push({ 
-        nome: data.nome, 
-        cracha: cracha, 
-        setor: data.setor,
-        turno: data.turno,
-        selecionado: true 
-    });
+  const lista = document.getElementById("listaOperadores");
+  const item = document.createElement("div");
+  item.className = "operator-item selected";
+  item.id = "item-" + cracha;
+
+  item.innerHTML = `
+    <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked, this)">
+    <div class="operator-info">
+      <span>👤 ${data.nome} (${cracha})</span>
+      <small>Setor: ${data.setor} | Turno: ${data.turno}</small>
+    </div>
+  `;
+
+  lista.appendChild(item);
+
+  colaboradoresSelecionados.push({
+    nome: data.nome,
+    cracha: cracha,
+    setor: data.setor,
+    turno: data.turno,
+    selecionado: true
+  });
 }
 
-function toggleColaborador(cracha, selecionado, elemento) {
-    const index = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
-    if (index !== -1) {
-        colaboradoresSelecionados[index].selecionado = selecionado;
-        elemento.parentElement.classList.toggle("selected", selecionado);
-    }
-}
+// =====================================================
+// MARCAR / DESMARCAR COLABORADOR
+// =====================================================
+window.toggleColaborador = function(cracha, selecionado, el) {
+  const index = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
+  if (index !== -1) {
+    colaboradoresSelecionados[index].selecionado = selecionado;
+    el.parentElement.classList.toggle("selected", selecionado);
+  }
+};
 
-function enviar() {
-    const lider = document.getElementById("lider").value;
-    const dataHE = document.getElementById("dataHE").value;
-    const horarioHE = document.getElementById("horarioHE").value;
-    const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
+// =====================================================
+// ENVIAR HORA EXTRA
+// =====================================================
+window.enviar = async function() {
+  const lider = document.getElementById("lider").value.trim();
+  const dataHE = document.getElementById("dataHE").value;
+  const horarioHE = document.getElementById("horarioHE").value;
+  const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
 
-    if (!selecionados.length || !dataHE || !horarioHE || !lider) {
-        alert("⚠️ Preencha todos os campos corretamente.");
-        return;
-    }
+  if (!selecionados.length) { alert("⚠️ Selecione ao menos um funcionário"); return; }
+  if (!dataHE) { alert("⚠️ Selecione a data"); return; }
+  if (!horarioHE) { alert("⚠️ Selecione o horário"); return; }
+  if (!lider) { alert("⚠️ Informe o nome do líder"); return; }
 
-    const promises = selecionados.map(colab => {
-        const partes = dataHE.split("-");
-        const dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+  const btn = document.getElementById("btn-enviar");
+  btn.innerHTML = '<span class="spinner"></span>Enviando...';
+  btn.disabled = true;
 
-        return fetch(URL, {
-            method: "POST",
-            body: JSON.stringify({
-                token: SECURITY_TOKEN, // SEGURANÇA: Token no POST
-                tipo: "hora_extra",
-                cracha: colab.cracha,
-                nome: colab.nome,
-                setor: colab.setor,
-                turno: colab.turno,
-                data: dataFormatada,
-                horario: horarioHE,
-                lider: lider
-            })
-        });
-    });
-
-    Promise.all(promises)
-    .then(() => {
-        alert("✅ Hora extra enviada com sucesso");
-        document.getElementById("listaOperadores").innerHTML = "";
-        colaboradoresSelecionados = [];
-        ["lider", "dataHE", "horarioHE"].forEach(id => document.getElementById(id).value = "");
-    })
-    .catch(() => alert("❌ Erro no envio seguro."));
-}
-
-function cadastrar() {
-    fetch(URL, {
+  let erros = 0;
+  for (const colab of selecionados) {
+    try {
+      const resp = await fetch(SCRIPT_URL, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            token: SECURITY_TOKEN, // SEGURANÇA: Token no cadastro
-            tipo: "cadastro",
-            nome: document.getElementById("nomeCad").value,
-            cracha: document.getElementById("crachaCad").value,
-            endereco: document.getElementById("enderecoCad").value,
-            setor: document.getElementById("setorCad").value,
-            turno: document.getElementById("turnoCad").value
+          token: TOKEN,
+          tipo: "hora_extra",
+          cracha: colab.cracha,
+          nome: colab.nome,
+          setor: colab.setor,
+          turno: colab.turno,
+          lider: lider,
+          data: dataHE,
+          horario: horarioHE
         })
-    })
-    .then(() => {
-        alert("✅ Funcionário cadastrado");
-        ["nomeCad", "crachaCad", "enderecoCad", "setorCad", "turnoCad"].forEach(id => document.getElementById(id).value = "");
-    })
-    .catch(() => alert("❌ Erro no cadastro."));
-}
+      });
+      const data = await resp.json();
+      if (data.erro) erros++;
+    } catch {
+      erros++;
+    }
+  }
+
+  btn.innerHTML = "Confirmar Hora Extra";
+  btn.disabled = false;
+
+  if (erros === 0) {
+    alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)`);
+    document.getElementById("listaOperadores").innerHTML = "";
+    colaboradoresSelecionados = [];
+    document.getElementById("lider").value = "";
+    document.getElementById("dataHE").value = "";
+    document.getElementById("horarioHE").selectedIndex = 0;
+  } else {
+    alert(`⚠️ ${erros} registro(s) falharam. Verifique a conexão.`);
+  }
+};
+
+// =====================================================
+// CADASTRAR FUNCIONÁRIO
+// =====================================================
+window.cadastrar = async function() {
+  const nome = document.getElementById("nomeCad").value.trim();
+  const cracha = document.getElementById("crachaCad").value.trim();
+  const endereco = document.getElementById("enderecoCad").value.trim();
+  const setor = document.getElementById("setorCad").value.trim();
+  const turno = document.getElementById("turnoCad").value.trim();
+
+  if (!nome || !cracha || !setor || !turno) {
+    alert("⚠️ Preencha nome, crachá, setor e turno");
+    return;
+  }
+
+  const btn = document.getElementById("btn-cadastrar");
+  btn.innerHTML = '<span class="spinner"></span>Cadastrando...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: TOKEN,
+        tipo: "cadastro",
+        nome, cracha, endereco, setor, turno
+      })
+    });
+    const data = await resp.json();
+
+    if (data.sucesso) {
+      alert("✅ Funcionário cadastrado com sucesso");
+      ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+    } else {
+      alert("❌ Erro: " + (data.erro || "desconhecido"));
+    }
+  } catch (e) {
+    alert("❌ Erro de conexão. Verifique a URL do Apps Script.");
+    console.error(e);
+  } finally {
+    btn.innerHTML = "Cadastrar Funcionário";
+    btn.disabled = false;
+  }
+};
 </script>
 </body>
 </html>
