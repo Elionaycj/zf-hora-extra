@@ -100,72 +100,66 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
 <script>
 // ================= CONFIG =================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxasc_XR86ySCdYvyecVM1f8vPSzPaMWSTvHIXDVDGpbm-H9bfUWaaYTvis94xfXbY/exec";
-const TOKEN = "2503";
-
-// ================= STATE =================
-const state = {
-  usuarioLogado: null,
-  colaboradores: []
-};
 
 // ================= HELPERS =================
 const $ = (id) => document.getElementById(id);
 
-const sanitize = (value) => String(value).trim();
-
-const toggleLoading = (btn, text) => {
-  btn.innerHTML = `<span class="spinner"></span>${text}`;
-  btn.disabled = true;
-};
-
-const resetButton = (btn, text) => {
-  btn.innerHTML = text;
-  btn.disabled = false;
-};
-
-const showError = (msg) => alert(`❌ ${msg}`);
-const showWarning = (msg) => alert(`⚠️ ${msg}`);
-const showSuccess = (msg) => alert(`✅ ${msg}`);
+const showError = (msg) => alert("❌ " + msg);
+const showWarning = (msg) => alert("⚠️ " + msg);
+const showSuccess = (msg) => alert("✅ " + msg);
 
 // ================= API =================
 async function chamarScript(params) {
-  try {
-    const qs = new URLSearchParams({ token: TOKEN, ...params }).toString();
-    const resp = await fetch(`${SCRIPT_URL}?${qs}`);
+  const token = localStorage.getItem("token") || "";
 
-    if (!resp.ok) throw new Error("Erro HTTP");
+  const qs = new URLSearchParams({
+    token,
+    ...params
+  }).toString();
 
-    const data = await resp.json();
-    if (!data) throw new Error("Resposta vazia");
-
-    return data;
-  } catch (err) {
-    console.error("API ERROR:", err);
-    throw new Error("Falha na comunicação com servidor");
-  }
+  const resp = await fetch(`${SCRIPT_URL}?${qs}`);
+  return resp.json();
 }
 
 // ================= LOGIN =================
-const USUARIOS = {
-  "elionay@horaextra.com": "2503"
-};
-
-window.fazerLogin = function () {
-  const email = sanitize($("email-login").value);
+window.fazerLogin = async function () {
+  const email = $("email-login").value.trim();
   const senha = $("senha-login").value;
-  const btn = $("btn-login");
 
-  if (USUARIOS[email] && USUARIOS[email] === senha) {
-    state.usuarioLogado = email;
+  if (!email || !senha) {
+    return showWarning("Preencha email e senha");
+  }
+
+  const btn = $("btn-login");
+  btn.innerHTML = "Entrando...";
+  btn.disabled = true;
+
+  try {
+    const res = await chamarScript({
+      acao: "login",
+      email,
+      senha
+    });
+
+    if (res.erro) {
+      showError(res.erro);
+      return;
+    }
+
+    localStorage.setItem("token", res.token);
+
     $("login-screen").style.display = "none";
     $("main-content").style.display = "block";
-  } else {
-    btn.textContent = "❌ Login inválido";
-    setTimeout(() => (btn.textContent = "Entrar"), 2000);
+
+  } catch {
+    showError("Erro ao conectar com servidor");
+  } finally {
+    btn.innerHTML = "Entrar";
+    btn.disabled = false;
   }
 };
 
-// ================= UI =================
+// ================= TROCAR TELA =================
 window.trocarTela = function (tela) {
   $("hora").style.display = tela === "hora" ? "block" : "none";
   $("cadastro").style.display = tela === "cadastro" ? "block" : "none";
@@ -176,39 +170,49 @@ window.trocarTela = function (tela) {
 
 // ================= BUSCAR =================
 window.buscar = async function () {
-  const cracha = sanitize($("cracha").value);
-  const btn = $("btn-buscar");
+  const cracha = $("cracha").value.trim();
 
   if (!cracha) return showWarning("Digite um crachá");
 
-  if (state.colaboradores.some(c => c.cracha === cracha)) {
-    return showWarning("Funcionário já está na lista");
-  }
-
-  toggleLoading(btn, "Buscando...");
+  const btn = $("btn-buscar");
+  btn.innerHTML = "Buscando...";
+  btn.disabled = true;
 
   try {
-    const data = await chamarScript({ acao: "buscar", cracha });
+    const data = await chamarScript({
+      acao: "buscar",
+      cracha
+    });
 
-    if (data.erro) return showError(data.erro);
+    if (data.erro) {
+      showError(data.erro);
+      return;
+    }
 
     adicionarNaLista(data, cracha);
     $("cracha").value = "";
 
-  } catch (err) {
-    showError(err.message);
+  } catch {
+    showError("Erro de conexão");
   } finally {
-    resetButton(btn, "Buscar");
+    btn.innerHTML = "Buscar";
+    btn.disabled = false;
   }
 };
 
 // ================= LISTA =================
+let colaboradoresSelecionados = [];
+
 function adicionarNaLista(data, cracha) {
+  if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
+    return showWarning("Funcionário já está na lista");
+  }
+
   const lista = $("listaOperadores");
 
   const item = document.createElement("div");
   item.className = "operator-item selected";
-  item.id = `item-${cracha}`;
+  item.id = "item-" + cracha;
 
   item.innerHTML = `
     <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked, this)">
@@ -220,7 +224,7 @@ function adicionarNaLista(data, cracha) {
 
   lista.appendChild(item);
 
-  state.colaboradores.push({
+  colaboradoresSelecionados.push({
     nome: data.nome,
     cracha,
     setor: data.setor,
@@ -231,7 +235,7 @@ function adicionarNaLista(data, cracha) {
 
 // ================= TOGGLE =================
 window.toggleColaborador = function (cracha, selecionado, el) {
-  const colab = state.colaboradores.find(c => c.cracha === cracha);
+  const colab = colaboradoresSelecionados.find(c => c.cracha === cracha);
   if (!colab) return;
 
   colab.selecionado = selecionado;
@@ -240,27 +244,31 @@ window.toggleColaborador = function (cracha, selecionado, el) {
 
 // ================= ENVIAR =================
 window.enviar = async function () {
-  const lider = sanitize($("lider").value);
+  const lider = $("lider").value.trim();
   const dataHE = $("dataHE").value;
   const horarioHE = $("horarioHE").value;
-  const btn = $("btn-enviar");
 
-  const selecionados = state.colaboradores.filter(c => c.selecionado);
+  const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
 
   if (!selecionados.length) return showWarning("Selecione ao menos um funcionário");
   if (!dataHE) return showWarning("Selecione a data");
   if (!horarioHE) return showWarning("Selecione o horário");
   if (!lider) return showWarning("Informe o nome do líder");
 
-  toggleLoading(btn, "Enviando...");
+  const btn = $("btn-enviar");
+  btn.innerHTML = "Enviando...";
+  btn.disabled = true;
 
   let erros = 0;
 
-  await Promise.all(selecionados.map(async (colab) => {
+  for (const colab of selecionados) {
     try {
       const res = await chamarScript({
         acao: "hora_extra",
-        ...colab,
+        cracha: colab.cracha,
+        nome: colab.nome,
+        setor: colab.setor,
+        turno: colab.turno,
         lider,
         data: dataHE,
         horario: horarioHE
@@ -271,60 +279,67 @@ window.enviar = async function () {
     } catch {
       erros++;
     }
-  }));
+  }
 
-  resetButton(btn, "Confirmar Hora Extra");
+  btn.innerHTML = "Confirmar Hora Extra";
+  btn.disabled = false;
 
   if (erros === 0) {
     showSuccess(`Hora extra registrada para ${selecionados.length} funcionário(s)`);
 
     $("listaOperadores").innerHTML = "";
-    state.colaboradores = [];
+    colaboradoresSelecionados = [];
 
-    ["lider", "dataHE"].forEach(id => $(id).value = "");
+    $("lider").value = "";
+    $("dataHE").value = "";
     $("horarioHE").selectedIndex = 0;
 
   } else {
-    showWarning(`${erros} registro(s) falharam`);
+    showWarning(`${erros} falha(s) no envio`);
   }
 };
 
-// ================= CADASTRO =================
+// ================= CADASTRO (CORRIGIDO) =================
 window.cadastrar = async function () {
-  const nome = sanitize($("nomeCad").value);
-  const cracha = sanitize($("crachaCad").value);
-  const endereco = sanitize($("enderecoCad").value);
-  const setor = sanitize($("setorCad").value);
-  const turno = sanitize($("turnoCad").value);
-
-  const btn = $("btn-cadastrar");
+  const nome = $("nomeCad").value.trim();
+  const cracha = $("crachaCad").value.trim();
+  const endereco = $("enderecoCad").value.trim();
+  const setor = $("setorCad").value.trim();
+  const turno = $("turnoCad").value.trim();
 
   if (!nome || !cracha || !setor || !turno) {
     return showWarning("Preencha nome, crachá, setor e turno");
   }
 
-  toggleLoading(btn, "Cadastrando...");
+  const btn = $("btn-cadastrar");
+  btn.innerHTML = "Cadastrando...";
+  btn.disabled = true;
 
   try {
     const res = await chamarScript({
       acao: "cadastro",
-      nome, cracha, endereco, setor, turno
+      nome,
+      cracha,
+      endereco,
+      setor,
+      turno
     });
 
-    if (res.sucesso) {
-      showSuccess("Funcionário cadastrado");
-
-      ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"]
-        .forEach(id => $(id).value = "");
-
-    } else {
-      showError(res.erro || "Erro desconhecido");
+    if (res.erro) {
+      showError(res.erro);
+      return;
     }
 
-  } catch (err) {
-    showError(err.message);
+    showSuccess("Funcionário cadastrado com sucesso");
+
+    ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"]
+      .forEach(id => $(id).value = "");
+
+  } catch {
+    showError("Erro ao cadastrar");
   } finally {
-    resetButton(btn, "Cadastrar Funcionário");
+    btn.innerHTML = "Cadastrar Funcionário";
+    btn.disabled = false;
   }
 };
 </script>
