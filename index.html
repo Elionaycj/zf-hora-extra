@@ -3,108 +3,218 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZF Hora Extra</title>
+
+<!--
+  📚 MUDANÇA 6 — Google Identity Services (GSI)
+  
+  Esta biblioteca oficial do Google é carregada diretamente dos
+  servidores deles. Ela cuida de todo o fluxo OAuth:
+  - Abre o popup de login do Google
+  - Pede as permissões necessárias
+  - Devolve o id_token assinado
+  
+  Nós nunca vemos a senha do usuário — só o token resultante.
+-->
+<script src="https://accounts.google.com/gsi/client" async></script>
+
 <style>
 * { box-sizing: border-box; }
 body { font-family: Arial; margin: 0; background: #f4f6f9; }
 .header { background: #0057B8; color: white; padding: 15px; text-align: center; font-size: 20px; }
-.tabs { display: flex; background: white; }
-.tabs button { flex: 1; padding: 12px; border: none; background: #ddd; font-weight: bold; cursor: pointer; }
+.header-inner { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.tabs { display: flex; background: white; border-bottom: 2px solid #e0e0e0; }
+.tabs button { flex: 1; padding: 12px; border: none; background: #ddd; font-weight: bold; cursor: pointer; font-size: 13px; }
 .tabs button.active { background: #0057B8; color: white; }
-.container { padding: 20px; }
-input, button, select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
-.row { display: flex; gap: 10px; }
-.row > * { flex: 1; }
-button { background: #0057B8; color: white; border: none; transition: transform 0.1s ease, background 0.2s ease; cursor: pointer; }
-button:active { transform: scale(0.96); background: #004494; }
+.container { padding: 15px; }
+input, select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; background: white; }
+button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none; font-size: 14px; background: #0057B8; color: white; font-weight: bold; cursor: pointer; transition: transform 0.1s ease, background 0.2s ease; }
+button:active { transform: scale(0.97); background: #004494; }
 button:disabled { background: #999; cursor: not-allowed; transform: none; }
-.card { background: white; padding: 15px; border-radius: 10px; margin-top: 15px; }
-.operator-item { display: flex; align-items: flex-start; background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee; transition: all 0.3s ease; border-left: 5px solid #ccc; }
-.operator-item.selected { background: #e7f3ff; border-left: 5px solid #0057B8; transform: translateX(5px); }
-.operator-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
-.operator-info { display: flex; flex-direction: column; gap: 2px; }
-.operator-info span { font-size: 14px; font-weight: bold; color: #333; }
-.operator-info small { font-size: 12px; color: #666; }
-.leader-select-box { width: 100%; padding: 12px; margin-top: 10px; background: white; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-weight: bold; color: #333; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-.leader-select-box::after { content: "▼"; font-size: 10px; color: #666; }
-.leader-select-box.open::after { content: "▲"; }
-.leader-carousel { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; margin-top: 5px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.card { background: white; padding: 15px; border-radius: 12px; margin-top: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+.setor-label { font-size: 12px; font-weight: bold; color: #555; margin-top: 14px; margin-bottom: 4px; display: block; }
+.setor-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.setor-chip { padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; border: 2px solid #ddd; background: #f0f0f0; color: #444; transition: all 0.2s ease; user-select: none; }
+.setor-chip:active { transform: scale(0.95); }
+.setor-chip.active { background: #0057B8; color: white; border-color: #004494; }
+#painel-setor { display: none; margin-top: 12px; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.setor-header { display: flex; align-items: center; justify-content: space-between; background: #0057B8; color: white; padding: 10px 14px; border-radius: 10px 10px 0 0; font-weight: bold; font-size: 14px; }
+.setor-header button { width: auto; padding: 4px 10px; margin: 0; font-size: 12px; background: rgba(255,255,255,0.25); border-radius: 12px; color: white; border: 1px solid rgba(255,255,255,0.5); }
+.setor-operadores { background: #f9f9f9; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px; padding: 10px; }
+.setor-vazio { text-align: center; color: #999; font-size: 13px; padding: 20px 0; }
+.operator-item { display: flex; align-items: center; background: white; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #eee; transition: all 0.2s ease; border-left: 4px solid #ccc; }
+.operator-item.selected { background: #e7f3ff; border-left-color: #0057B8; }
+.operator-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 10px; cursor: pointer; flex-shrink: 0; accent-color: #0057B8; }
+.operator-info span { font-size: 13px; font-weight: bold; color: #222; display: block; }
+.operator-info small { font-size: 11px; color: #777; }
+#resumo-selecionados { margin-top: 10px; }
+.resumo-header { font-size: 12px; font-weight: bold; color: #0057B8; margin-bottom: 6px; }
+.resumo-tag { display: inline-flex; align-items: center; gap: 6px; background: #e7f3ff; border: 1px solid #b3d4f5; border-radius: 16px; padding: 4px 10px; font-size: 12px; font-weight: bold; color: #0057B8; margin: 3px 3px 3px 0; }
+.resumo-tag .rem { cursor: pointer; color: #c00; font-size: 14px; line-height: 1; }
+.dropdown-box { width: 100%; padding: 12px 14px; margin-top: 10px; background: white; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-weight: bold; color: #333; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.dropdown-box::after { content: "▼"; font-size: 10px; color: #888; }
+.dropdown-box.open::after { content: "▲"; }
+.leader-carousel { display: flex; overflow-x: auto; gap: 8px; padding: 8px 0; margin-top: 4px; -webkit-overflow-scrolling: touch; }
 .leader-carousel::-webkit-scrollbar { display: none; }
 .leader-carousel.hidden { display: none; }
-.leader-item { flex: 0 0 auto; padding: 10px 15px; background: #eee; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent; }
+.leader-item { flex: 0 0 auto; padding: 9px 16px; background: #eee; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease; }
 .leader-item.active { background: #0057B8; color: white; border-color: #004494; }
-.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 5px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-#login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f6f9; }
-.login-card { background: white; padding: 30px; border-radius: 12px; width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-.login-card h2 { color: #0057B8; text-align: center; margin-bottom: 5px; }
-.login-card p { text-align: center; font-size: 12px; color: #888; margin-bottom: 5px; }
-.perfil-badge { display: inline-block; background: #e7f3ff; color: #0057B8; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 12px; margin-left: 8px; vertical-align: middle; }
-.header-inner { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.perfil-badge { background: #e7f3ff; color: #0057B8; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 12px; }
 .btn-logout { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; width: auto; padding: 5px 12px; font-size: 12px; margin-top: 0; border-radius: 20px; }
-.btn-logout:hover { background: rgba(255,255,255,0.35); }
+.divider { border: none; border-top: 1px solid #eee; margin: 14px 0 4px; }
+.section-title { font-size: 11px; font-weight: bold; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 14px; }
+
+/* ── LOGIN ── */
+#login-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f6f9; }
+.login-card { background: white; padding: 35px 30px; border-radius: 16px; width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); text-align: center; }
+.login-card h2 { color: #0057B8; margin-bottom: 4px; font-size: 22px; }
+.login-card p { font-size: 13px; color: #999; margin-bottom: 24px; }
+
+/*
+  📚 MUDANÇA 7 — Botão "Entrar com Google"
+  
+  O Google fornece um componente visual oficial (g_id_signin).
+  Usar o botão oficial é importante porque:
+  - O usuário reconhece o visual e confia mais
+  - O Google pode atualizar o fluxo de segurança sem você mudar código
+  - Evita phishing (usuário sabe que está logando no Google de verdade)
+*/
+.google-btn-wrapper { display: flex; justify-content: center; margin-top: 8px; }
+.login-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #ccc; font-size: 12px; }
+.login-divider::before, .login-divider::after { content: ""; flex: 1; height: 1px; background: #eee; }
+
+/* Avatar do usuário logado */
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); vertical-align: middle; margin-right: 6px; }
 </style>
 </head>
 <body>
 
+<!-- ══ LOGIN ══ -->
 <div id="login-screen">
   <div class="login-card">
     <h2>🏭 ZF Hora Extra</h2>
-    <p>Acesso restrito — use suas credenciais</p>
-    <input type="email" id="email-login" placeholder="E-mail" autocomplete="email">
-    <input type="password" id="senha-login" placeholder="Senha" onkeydown="if(event.key==='Enter') fazerLogin()">
-    <button onclick="fazerLogin()" id="btn-login">Entrar</button>
+    <p>Faça login com sua conta Google autorizada</p>
+
+    <!--
+      📚 MUDANÇA 8 — data-client_id
+      
+      Este é o ID público do seu app no Google Cloud.
+      NÃO é uma senha — pode ficar no HTML.
+      É como o "CNPJ" do seu app junto ao Google.
+      
+      Como obter: console.cloud.google.com → APIs e Serviços
+                  → Credenciais → Criar credencial → ID do cliente OAuth
+      
+      data-callback: função JS que o Google vai chamar após login,
+                     passando o id_token como parâmetro.
+      
+      data-auto_select: false → sempre mostra tela de escolha de conta
+      data-ux_mode: popup → abre janela separada (não redireciona a página)
+    -->
+    <div id="g_id_onload"
+      data-client_id="145550246201-75jrnigjm1cbe454hhj23ipj9boj8ig7.apps.googleusercontent.com"
+      data-callback="handleGoogleLogin"
+      data-auto_select="false"
+      data-ux_mode="popup">
+    </div>
+
+    <div class="google-btn-wrapper">
+      <div class="g_id_signin"
+        data-type="standard"
+        data-shape="rectangular"
+        data-theme="outline"
+        data-text="signin_with"
+        data-size="large"
+        data-locale="pt-BR"
+        data-width="260">
+      </div>
+    </div>
+
+    <p id="login-erro" style="color:#c00;font-size:12px;margin-top:12px;display:none;"></p>
   </div>
 </div>
 
+<!-- ══ CONTEÚDO PRINCIPAL ══ -->
 <div id="main-content" style="display:none;">
+
 <div class="header">
   <div class="header-inner">
-    <span>ZF Hora Extra</span>
+    <span id="header-usuario">ZF Hora Extra</span>
     <span id="badge-perfil" class="perfil-badge" style="display:none;"></span>
     <button class="btn-logout" onclick="fazerLogout()">Sair</button>
   </div>
 </div>
+
 <div class="tabs">
-  <button id="btn-hora" class="active" onclick="trocarTela('hora')">Hora Extra</button>
-  <button id="btn-cadastro" onclick="trocarTela('cadastro')">Cadastro</button>
+  <button id="btn-hora"     class="active" onclick="trocarTela('hora')">Hora Extra</button>
+  <button id="btn-cadastro"               onclick="trocarTela('cadastro')">Cadastro</button>
 </div>
+
 <div class="container">
-  <p style="font-size:10px;color:#666;text-align:center;margin-top:10px;">
-    Dados protegidos conforme a LGPD. O processamento limita-se ao necessário para o controle de jornada.
+  <p style="font-size:10px;color:#aaa;text-align:center;margin:8px 0 0;">
+    Dados protegidos conforme a LGPD.
   </p>
 
+  <!-- ══ ABA: HORA EXTRA ══ -->
   <div id="hora">
     <div class="card">
+      <div class="section-title">Buscar por Crachá</div>
       <div class="row">
-        <input type="number" id="cracha" placeholder="Crachá" onkeydown="if(event.key==='Enter') buscar()">
+        <input type="number" id="cracha" placeholder="Número do crachá" onkeydown="if(event.key==='Enter') buscar()">
         <button onclick="buscar()" id="btn-buscar" style="margin-top:10px;">Buscar</button>
       </div>
-      <div id="listaOperadores" style="margin-top:15px;"></div>
-      <div id="leader-trigger" class="leader-select-box" onclick="ui.toggleLeaderSelector()">
+      <hr class="divider">
+      <div class="section-title">Selecionar por Setor</div>
+      <span class="setor-label">Toque no setor para ver os operadores:</span>
+      <div class="setor-chips" id="setor-chips"></div>
+      <div id="painel-setor">
+        <div class="setor-header">
+          <span id="painel-setor-nome">—</span>
+          <button onclick="selecionarTodosSetor()">✔ Todos</button>
+        </div>
+        <div class="setor-operadores" id="painel-setor-lista"></div>
+      </div>
+      <div id="resumo-selecionados" style="display:none;">
+        <hr class="divider">
+        <div class="resumo-header">✅ Selecionados para hora extra:</div>
+        <div id="resumo-tags"></div>
+      </div>
+      <hr class="divider">
+      <div class="section-title">Líder Responsável</div>
+      <div id="leader-trigger" class="dropdown-box" onclick="ui.toggleLeaderSelector()">
         <span id="selected-leader-name">Selecionar Líder</span>
       </div>
       <div id="leader-carousel" class="leader-carousel hidden"></div>
+      <div class="section-title" style="margin-top:14px;">Data e Horário</div>
       <div class="row">
         <input type="date" id="dataHE">
         <select id="horarioHE">
-          <option value="" disabled selected>Selecione o Horário</option>
-          <option value="06h-12h">06h-12h</option>
-          <option value="12h-18h">12h-18h</option>
-          <option value="18h-00h">18h-00h</option>
-          <option value="00h-06h">00h-06h</option>
+          <option value="" disabled selected>Horário</option>
+          <option value="06h-12h">06h – 12h</option>
+          <option value="12h-18h">12h – 18h</option>
+          <option value="18h-00h">18h – 00h</option>
+          <option value="00h-06h">00h – 06h</option>
         </select>
       </div>
-      <button onclick="enviar()" id="btn-enviar">Confirmar Hora Extra</button>
+      <button onclick="enviar()" id="btn-enviar" style="margin-top:16px;">✔ Confirmar Hora Extra</button>
     </div>
   </div>
 
+  <!-- ══ ABA: CADASTRO ══ -->
   <div id="cadastro" style="display:none;">
     <div class="card">
-      <input type="text"   id="nomeCad"     placeholder="Nome">
+      <div class="section-title">Novo Funcionário</div>
+      <input type="text"   id="nomeCad"     placeholder="Nome completo">
       <input type="number" id="crachaCad"   placeholder="Crachá">
       <input type="text"   id="enderecoCad" placeholder="Endereço">
-      <input type="text"   id="setorCad"    placeholder="Setor">
-      <input type="text"   id="turnoCad"    placeholder="Turno">
+      <select id="setorCad">
+        <option value="" disabled selected>Selecione o Setor</option>
+      </select>
+      <input type="text" id="turnoCad" placeholder="Turno (ex: A, B, C)">
       <button onclick="cadastrar()" id="btn-cadastrar">Cadastrar Funcionário</button>
     </div>
   </div>
@@ -112,101 +222,175 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
 </div>
 
 <script>
-// ⚠️ URL DO SEU WEB APP (Google Apps Script)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZKsNTkdMQ7LWQMQKJHX1UIuOdU80k5aEloxiYiM5ZTsJMHcYFay9e616rOI8d-Ls/exec";
+// ══════════════════════════════════════════════════════════
+// ⚠️  SUBSTITUA pelos seus valores reais:
+//   SCRIPT_URL  → URL do seu Web App (Apps Script)
+//   CLIENT_ID   → ID do cliente OAuth (Google Cloud Console)
+//                 Deve ser o MESMO valor do data-client_id no HTML
+// ══════════════════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdocgJmTt2qM880I0pY2UP75U_wGaT-2ZpQ5_Z_-K_XB4MFpgoe9fHVBKrPozdFA0/exec";
+const CLIENT_ID  = "145550246201-75jrnigjm1cbe454hhj23ipj9boj8ig7.apps.googleusercontent.com";
 
 const LISTA_LIDERES = ["Willian Nunes", "Cidão Aparecido", "Claudecir", "Wili", "Altair", "Roseli"];
+const SETORES       = ["Compressor", "Usinagem", "Tristope", "Secador"];
+const COR_SETOR     = { "Compressor": "#1565C0", "Usinagem": "#2E7D32", "Tristope": "#6A1B9A", "Secador": "#E65100" };
 
-// Sessão em memória (some ao fechar a aba — seguro)
-let sessao = { token: null, email: null, perfil: null };
+// Estado (em memória — some ao fechar a aba)
+let sessao                    = { token: null, email: null, perfil: null, nome: null };
 let colaboradoresSelecionados = [];
-let liderSelecionado = "";
+let liderSelecionado          = "";
+let setorAtivo                = null;
+let operadoresPorSetor        = {};
 
-// ── Comunicação com Apps Script ──────────────────────
-async function chamarScript(params) {
-  if (sessao.token && !params.token) params.token = sessao.token;
-  const qs = new URLSearchParams(params).toString();
-  const r  = await fetch(`${SCRIPT_URL}?${qs}`);
-  return r.json();
-}
+// ══════════════════════════════════════════════════════════
+// 📚 MUDANÇA 9 — handleGoogleLogin
+//
+// Esta função é chamada AUTOMATICAMENTE pelo Google após o login.
+// O parâmetro "response" contém o id_token — nunca contém senha.
+//
+// credential = id_token: string longa, ex: "eyJhbGciOiJSUzI1Ni..."
+// Ela é enviada ao Apps Script que valida a assinatura com o Google.
+// ══════════════════════════════════════════════════════════
+window.handleGoogleLogin = async function(response) {
+  const idToken = response.credential;
+  mostrarErroLogin("");
 
-// ── LOGIN via Apps Script ────────────────────────────
-window.fazerLogin = async function() {
-  const email = document.getElementById("email-login").value.trim();
-  const senha = document.getElementById("senha-login").value;
-  const btn   = document.getElementById("btn-login");
-  if (!email || !senha) { alert("⚠️ Preencha e-mail e senha"); return; }
-
-  btn.innerHTML = '<span class="spinner"></span>Entrando...';
-  btn.disabled = true;
+  const btn = document.querySelector(".g_id_signin");
+  // Não desabilitamos o botão do Google (é gerenciado pela lib)
+  // mas podemos dar feedback visual de outra forma
+  document.getElementById("login-erro").textContent = "⏳ Verificando acesso...";
+  document.getElementById("login-erro").style.display = "block";
+  document.getElementById("login-erro").style.color = "#0057B8";
 
   try {
-    // sem token ainda — rota de login é pública no Apps Script
-    const data = await chamarScript({ acao: "login", email, senha });
+    // Envia o id_token para o Apps Script validar
+    const data = await chamarScript({ acao: "login", id_token: idToken });
 
     if (data.erro) {
-      btn.textContent = "❌ " + data.erro;
-      setTimeout(() => { btn.textContent = "Entrar"; btn.disabled = false; }, 2500);
+      mostrarErroLogin("❌ " + data.erro);
+      // Revoga o token Google localmente para forçar novo login
+      google.accounts.id.revoke(CLIENT_ID, () => {});
       return;
     }
 
-    sessao = { token: data.token, email, perfil: data.perfil };
+    // Salva sessão em memória
+    sessao = { token: data.token, perfil: data.perfil, nome: data.nome };
+
+    // Exibe nome e foto do usuário no header
+    const header = document.getElementById("header-usuario");
+    header.innerHTML = data.foto
+      ? `<img src="${data.foto}" class="user-avatar" referrerpolicy="no-referrer"> ${data.nome || "ZF Hora Extra"}`
+      : data.nome || "ZF Hora Extra";
 
     const badge = document.getElementById("badge-perfil");
-    badge.textContent = data.perfil === "gestor" ? "👑 Gestor" : "👷 Líder";
+    badge.textContent  = data.perfil === "gestor" ? "👑 Gestor" : "👷 Líder";
     badge.style.display = "inline-block";
 
-    // Cadastro visível só para gestor
     document.getElementById("btn-cadastro").style.display =
       data.perfil === "gestor" ? "" : "none";
 
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("main-content").style.display = "block";
 
+    carregarTodosSetores();
+
   } catch (e) {
-    btn.textContent = "❌ Erro de conexão";
-    setTimeout(() => { btn.textContent = "Entrar"; btn.disabled = false; }, 2500);
+    mostrarErroLogin("❌ Erro de conexão. Tente novamente.");
     console.error(e);
   }
 };
 
-// ── LOGOUT ───────────────────────────────────────────
-window.fazerLogout = function() {
-  sessao = { token: null, email: null, perfil: null };
-  colaboradoresSelecionados = [];
-  liderSelecionado = "";
-  document.getElementById("listaOperadores").innerHTML = "";
-  document.getElementById("main-content").style.display = "none";
-  document.getElementById("login-screen").style.display  = "flex";
-  document.getElementById("email-login").value = "";
-  document.getElementById("senha-login").value = "";
-  const btn = document.getElementById("btn-login");
-  btn.textContent = "Entrar"; btn.disabled = false;
-  document.getElementById("btn-cadastro").style.display = "";
-};
+function mostrarErroLogin(msg) {
+  const el = document.getElementById("login-erro");
+  el.textContent = msg;
+  el.style.color = "#c00";
+  el.style.display = msg ? "block" : "none";
+}
 
-// Redireciona para login se o token expirar no servidor
+// ══════════════════════════════════════════════════════════
+// 📚 MUDANÇA 10 — chamarScript não envia mais senha
+//
+// ANTES: params podia conter { email, senha }
+// AGORA: params nunca contém senha — só token de sessão (gerado
+//        pelo servidor após validar o Google) ou id_token temporário
+// ══════════════════════════════════════════════════════════
+async function chamarScript(params) {
+  if (sessao.token && !params.token && params.acao !== "login") {
+    params.token = sessao.token;
+  }
+  const qs = new URLSearchParams(params).toString();
+  const r  = await fetch(`${SCRIPT_URL}?${qs}`);
+  return r.json();
+}
+
 function checarNaoAutorizado(data) {
-  if (data.erro === "Não autorizado") { fazerLogout(); return true; }
+  if (data && data.erro === "Não autorizado") { fazerLogout(); return true; }
   return false;
 }
 
-// ── CAROUSEL DE LÍDERES ──────────────────────────────
-const ui = {
-  toggleLeaderSelector() {
-    document.getElementById("leader-carousel").classList.toggle("hidden");
-    document.getElementById("leader-trigger").classList.toggle("open");
-  },
-  selectLeader(nome, el) {
-    document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
-    el.classList.add("active");
-    liderSelecionado = nome;
-    document.getElementById("selected-leader-name").textContent = "Líder: " + nome;
-    this.toggleLeaderSelector();
+// ══════════════════════════════════════════════════════════
+// 📚 MUDANÇA 11 — Logout invalida a sessão no SERVIDOR também
+//
+// ANTES: logout só limpava memória local do navegador
+// AGORA: envia ?acao=logout&token=... para o Apps Script apagar
+//        a sessão do Script Properties. Assim mesmo que alguém
+//        roube o token após o logout, ele não funciona mais.
+// ══════════════════════════════════════════════════════════
+window.fazerLogout = async function() {
+  // Tenta invalidar no servidor (best-effort — não bloqueia se falhar)
+  if (sessao.token) {
+    try { await chamarScript({ acao: "logout", token: sessao.token }); } catch {}
   }
+
+  // Desconecta do Google localmente (evita auto-login na próxima vez)
+  if (window.google && google.accounts) {
+    google.accounts.id.disableAutoSelect();
+  }
+
+  // Limpa estado local
+  sessao = { token: null, email: null, perfil: null, nome: null };
+  colaboradoresSelecionados = [];
+  liderSelecionado = "";
+  setorAtivo = null;
+  operadoresPorSetor = {};
+
+  document.getElementById("painel-setor").style.display = "none";
+  document.getElementById("resumo-selecionados").style.display = "none";
+  document.getElementById("resumo-tags").innerHTML = "";
+  document.querySelectorAll(".setor-chip").forEach(c => c.classList.remove("active"));
+  document.getElementById("main-content").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("btn-cadastro").style.display = "";
+  mostrarErroLogin("");
 };
 
+// ══ O restante do código não mudou ══════════════════════════
+
+async function carregarTodosSetores() {
+  for (const setor of SETORES) {
+    try {
+      const data = await chamarScript({ acao: "listar_setor", setor });
+      operadoresPorSetor[setor] = data.operadores || [];
+    } catch { operadoresPorSetor[setor] = []; }
+  }
+}
+
 window.onload = function() {
+  const chipsDiv = document.getElementById("setor-chips");
+  SETORES.forEach(s => {
+    const chip = document.createElement("div");
+    chip.className = "setor-chip";
+    chip.textContent = s;
+    chip.dataset.setor = s;
+    chip.onclick = () => abrirSetor(s, chip);
+    chipsDiv.appendChild(chip);
+  });
+  const sel = document.getElementById("setorCad");
+  SETORES.forEach(s => {
+    const o = document.createElement("option");
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
   const carousel = document.getElementById("leader-carousel");
   LISTA_LIDERES.forEach(nome => {
     const item = document.createElement("div");
@@ -217,7 +401,6 @@ window.onload = function() {
   });
 };
 
-// ── ABAS ─────────────────────────────────────────────
 window.trocarTela = function(tela) {
   document.getElementById("hora").style.display     = tela === "hora"     ? "block" : "none";
   document.getElementById("cadastro").style.display = tela === "cadastro" ? "block" : "none";
@@ -225,7 +408,110 @@ window.trocarTela = function(tela) {
   document.getElementById("btn-cadastro").className = tela === "cadastro" ? "active" : "";
 };
 
-// ── BUSCAR FUNCIONÁRIO ───────────────────────────────
+async function abrirSetor(setor, chipEl) {
+  if (setorAtivo === setor) {
+    setorAtivo = null;
+    document.getElementById("painel-setor").style.display = "none";
+    chipEl.classList.remove("active");
+    return;
+  }
+  document.querySelectorAll(".setor-chip").forEach(c => c.classList.remove("active"));
+  chipEl.classList.add("active");
+  setorAtivo = setor;
+  const cor = COR_SETOR[setor] || "#0057B8";
+  document.getElementById("painel-setor").style.display = "block";
+  document.querySelector(".setor-header").style.background = cor;
+  document.getElementById("painel-setor-nome").textContent = "📍 " + setor;
+  const lista = document.getElementById("painel-setor-lista");
+  lista.innerHTML = '<div class="setor-vazio">⏳ Carregando...</div>';
+  let operadores = operadoresPorSetor[setor];
+  if (!operadores) {
+    try {
+      const data = await chamarScript({ acao: "listar_setor", setor });
+      if (checarNaoAutorizado(data)) return;
+      operadores = data.operadores || [];
+      operadoresPorSetor[setor] = operadores;
+    } catch { lista.innerHTML = '<div class="setor-vazio">❌ Erro ao carregar</div>'; return; }
+  }
+  renderizarPainelSetor(operadores, setor);
+}
+
+function renderizarPainelSetor(operadores, setor) {
+  const lista = document.getElementById("painel-setor-lista");
+  if (!operadores.length) { lista.innerHTML = '<div class="setor-vazio">Nenhum operador neste setor.</div>'; return; }
+  lista.innerHTML = "";
+  operadores.forEach(op => {
+    const jaSel = colaboradoresSelecionados.some(c => c.cracha === op.cracha && c.selecionado);
+    const item = document.createElement("div");
+    item.className = "operator-item" + (jaSel ? " selected" : "");
+    item.id = "setor-item-" + op.cracha;
+    item.innerHTML = `
+      <input type="checkbox" ${jaSel ? "checked" : ""}
+        onchange="togglePorSetor('${op.cracha}','${op.nome}','${op.setor}','${op.turno}',this.checked,this)">
+      <div class="operator-info">
+        <span>👤 ${op.nome}</span>
+        <small>Crachá: ${op.cracha} | Turno: ${op.turno}</small>
+      </div>`;
+    lista.appendChild(item);
+  });
+}
+
+window.selecionarTodosSetor = function() {
+  const ops = operadoresPorSetor[setorAtivo] || [];
+  const todosJa = ops.every(op => colaboradoresSelecionados.some(c => c.cracha === op.cracha && c.selecionado));
+  ops.forEach(op => {
+    const itemEl = document.getElementById("setor-item-" + op.cracha);
+    const check  = itemEl ? itemEl.querySelector("input[type=checkbox]") : null;
+    const marcar = !todosJa;
+    if (marcar) adicionarOuAtivar(op); else removerDeSelecionados(op.cracha);
+    if (check) check.checked = marcar;
+    if (itemEl) itemEl.classList.toggle("selected", marcar);
+  });
+  atualizarResumo();
+};
+
+window.togglePorSetor = function(cracha, nome, setor, turno, marcado, el) {
+  if (marcado) adicionarOuAtivar({ cracha, nome, setor, turno });
+  else removerDeSelecionados(cracha);
+  el.parentElement.classList.toggle("selected", marcado);
+  atualizarResumo();
+};
+
+function adicionarOuAtivar(op) {
+  const idx = colaboradoresSelecionados.findIndex(c => c.cracha === op.cracha);
+  if (idx === -1) colaboradoresSelecionados.push({ ...op, selecionado: true });
+  else colaboradoresSelecionados[idx].selecionado = true;
+}
+
+function removerDeSelecionados(cracha) {
+  const idx = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
+  if (idx !== -1) colaboradoresSelecionados.splice(idx, 1);
+}
+
+function atualizarResumo() {
+  const sels = colaboradoresSelecionados.filter(c => c.selecionado);
+  const box  = document.getElementById("resumo-selecionados");
+  const tags = document.getElementById("resumo-tags");
+  if (!sels.length) { box.style.display = "none"; tags.innerHTML = ""; return; }
+  box.style.display = "block";
+  tags.innerHTML = "";
+  sels.forEach(c => {
+    const cor = COR_SETOR[c.setor] || "#0057B8";
+    const tag = document.createElement("span");
+    tag.className = "resumo-tag";
+    tag.style.cssText = `border-color:${cor};color:${cor};background:${cor}15`;
+    tag.innerHTML = `${c.nome} <span class="rem" onclick="removerTag('${c.cracha}')">✕</span>`;
+    tags.appendChild(tag);
+  });
+}
+
+window.removerTag = function(cracha) {
+  removerDeSelecionados(cracha);
+  const itemEl = document.getElementById("setor-item-" + cracha);
+  if (itemEl) { itemEl.querySelector("input[type=checkbox]").checked = false; itemEl.classList.remove("selected"); }
+  atualizarResumo();
+};
+
 window.buscar = async function() {
   const cracha = document.getElementById("cracha").value.trim();
   if (!cracha) { alert("⚠️ Digite um crachá"); return; }
@@ -236,48 +522,40 @@ window.buscar = async function() {
     const data = await chamarScript({ acao: "buscar", cracha });
     if (checarNaoAutorizado(data)) return;
     if (data.erro) { alert("❌ " + data.erro); return; }
-    adicionarNaLista(data, cracha);
+    adicionarOuAtivar({ nome: data.nome, cracha, setor: data.setor, turno: data.turno });
+    atualizarResumo();
+    const itemEl = document.getElementById("setor-item-" + cracha);
+    if (itemEl) { itemEl.querySelector("input").checked = true; itemEl.classList.add("selected"); }
     document.getElementById("cracha").value = "";
-  } catch (e) { alert("❌ Erro de conexão."); console.error(e); }
+  } catch { alert("❌ Erro de conexão."); }
   finally { btn.innerHTML = "Buscar"; btn.disabled = false; }
 };
 
-function adicionarNaLista(data, cracha) {
-  if (colaboradoresSelecionados.some(c => c.cracha === cracha)) {
-    alert("⚠️ Funcionário já está na lista"); return;
+const ui = {
+  toggleLeaderSelector() {
+    document.getElementById("leader-carousel").classList.toggle("hidden");
+    document.getElementById("leader-trigger").classList.toggle("open");
+  },
+  selectLeader(nome, el) {
+    document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
+    el.classList.add("active");
+    liderSelecionado = nome;
+    document.getElementById("selected-leader-name").textContent = "👷 Líder: " + nome;
+    this.toggleLeaderSelector();
   }
-  const lista = document.getElementById("listaOperadores");
-  const item  = document.createElement("div");
-  item.className = "operator-item selected";
-  item.id = "item-" + cracha;
-  item.innerHTML = `
-    <input type="checkbox" checked onchange="toggleColaborador('${cracha}', this.checked, this)">
-    <div class="operator-info">
-      <span>👤 ${data.nome} (${cracha})</span>
-      <small>Setor: ${data.setor} | Turno: ${data.turno}</small>
-    </div>`;
-  lista.appendChild(item);
-  colaboradoresSelecionados.push({ nome: data.nome, cracha, setor: data.setor, turno: data.turno, selecionado: true });
-}
-
-window.toggleColaborador = function(cracha, selecionado, el) {
-  const i = colaboradoresSelecionados.findIndex(c => c.cracha === cracha);
-  if (i !== -1) { colaboradoresSelecionados[i].selecionado = selecionado; el.parentElement.classList.toggle("selected", selecionado); }
 };
 
-// ── ENVIAR HORA EXTRA ────────────────────────────────
 window.enviar = async function() {
   const lider     = liderSelecionado;
   const dataHE    = document.getElementById("dataHE").value;
   const horarioHE = document.getElementById("horarioHE").value;
   const selecionados = colaboradoresSelecionados.filter(c => c.selecionado);
   if (!selecionados.length) { alert("⚠️ Selecione ao menos um funcionário"); return; }
+  if (!lider)               { alert("⚠️ Selecione o líder");                 return; }
   if (!dataHE)              { alert("⚠️ Selecione a data");                  return; }
   if (!horarioHE)           { alert("⚠️ Selecione o horário");               return; }
-  if (!lider)               { alert("⚠️ Selecione o líder");                 return; }
   const btn = document.getElementById("btn-enviar");
-  btn.innerHTML = '<span class="spinner"></span>Enviando...';
-  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Enviando...'; btn.disabled = true;
   let erros = 0;
   for (const colab of selecionados) {
     try {
@@ -286,38 +564,43 @@ window.enviar = async function() {
       if (data.erro) erros++;
     } catch { erros++; }
   }
-  btn.innerHTML = "Confirmar Hora Extra"; btn.disabled = false;
+  btn.innerHTML = "✔ Confirmar Hora Extra"; btn.disabled = false;
   if (erros === 0) {
-    alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)`);
-    document.getElementById("listaOperadores").innerHTML = "";
-    colaboradoresSelecionados = [];
-    liderSelecionado = "";
-    document.getElementById("selected-leader-name").textContent = "Selecionar Líder";
+    alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)!`);
+    colaboradoresSelecionados = []; liderSelecionado = ""; setorAtivo = null;
+    document.getElementById("painel-setor").style.display = "none";
+    document.getElementById("resumo-selecionados").style.display = "none";
+    document.getElementById("resumo-tags").innerHTML = "";
+    document.querySelectorAll(".setor-chip").forEach(c => c.classList.remove("active"));
     document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
+    document.getElementById("selected-leader-name").textContent = "Selecionar Líder";
+    document.getElementById("leader-trigger").classList.remove("open");
+    document.getElementById("leader-carousel").classList.add("hidden");
     document.getElementById("dataHE").value = "";
     document.getElementById("horarioHE").selectedIndex = 0;
+    carregarTodosSetores();
   } else { alert(`⚠️ ${erros} registro(s) falharam.`); }
 };
 
-// ── CADASTRAR FUNCIONÁRIO ────────────────────────────
 window.cadastrar = async function() {
   const nome     = document.getElementById("nomeCad").value.trim();
   const cracha   = document.getElementById("crachaCad").value.trim();
   const endereco = document.getElementById("enderecoCad").value.trim();
-  const setor    = document.getElementById("setorCad").value.trim();
+  const setor    = document.getElementById("setorCad").value;
   const turno    = document.getElementById("turnoCad").value.trim();
   if (!nome || !cracha || !setor || !turno) { alert("⚠️ Preencha nome, crachá, setor e turno"); return; }
   const btn = document.getElementById("btn-cadastrar");
-  btn.innerHTML = '<span class="spinner"></span>Cadastrando...';
-  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Cadastrando...'; btn.disabled = true;
   try {
     const data = await chamarScript({ acao: "cadastro", nome, cracha, endereco, setor, turno });
     if (checarNaoAutorizado(data)) return;
     if (data.sucesso) {
-      alert("✅ Funcionário cadastrado com sucesso");
-      ["nomeCad","crachaCad","enderecoCad","setorCad","turnoCad"].forEach(id => document.getElementById(id).value = "");
+      alert(`✅ ${nome} cadastrado no setor ${setor}!`);
+      ["nomeCad","crachaCad","enderecoCad","turnoCad"].forEach(id => document.getElementById(id).value = "");
+      document.getElementById("setorCad").selectedIndex = 0;
+      delete operadoresPorSetor[setor];
     } else { alert("❌ " + (data.erro || "Erro desconhecido")); }
-  } catch (e) { alert("❌ Erro de conexão."); console.error(e); }
+  } catch { alert("❌ Erro de conexão."); }
   finally { btn.innerHTML = "Cadastrar Funcionário"; btn.disabled = false; }
 };
 </script>
