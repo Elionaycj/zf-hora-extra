@@ -557,13 +557,27 @@ window.enviar = async function() {
   const btn = document.getElementById("btn-enviar");
   btn.innerHTML = '<span class="spinner"></span>Enviando...'; btn.disabled = true;
   let erros = 0;
-  for (const colab of selecionados) {
-    try {
-      const data = await chamarScript({ acao: "hora_extra", cracha: colab.cracha, nome: colab.nome, setor: colab.setor, turno: colab.turno, lider, data: dataHE, horario: horarioHE });
-      if (checarNaoAutorizado(data)) return;
-      if (data.erro) erros++;
-    } catch { erros++; }
-  }
+  const lista = selecionados.map(c => ({
+  cracha: c.cracha,
+  nome: c.nome,
+  setor: c.setor,
+  turno: c.turno
+}));
+
+const res = await chamarScript({
+  acao: "hora_extra_lote",
+  lista: JSON.stringify(lista),
+  lider,
+  data: dataHE,
+  horario: horarioHE
+});
+
+if (res.erro) {
+  showError(res.erro);
+  return;
+}
+
+showSuccess(`Hora extra enviada para ${lista.length} funcionários`);
   btn.innerHTML = "✔ Confirmar Hora Extra"; btn.disabled = false;
   if (erros === 0) {
     alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)!`);
