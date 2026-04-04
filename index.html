@@ -573,11 +573,11 @@ const res = await chamarScript({
 });
 
 if (res.erro) {
-  showError(res.erro);
+  alert("❌ " + res.erro);
   return;
 }
 
-showSuccess(`Hora extra enviada para ${lista.length} funcionários`);
+alert(`✅ Enviado para ${lista.length} funcionários`);
   btn.innerHTML = "✔ Confirmar Hora Extra"; btn.disabled = false;
   if (erros === 0) {
     alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)!`);
