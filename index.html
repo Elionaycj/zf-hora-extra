@@ -228,7 +228,7 @@ button:disabled { background: #999; cursor: not-allowed; transform: none; }
 //   CLIENT_ID   → ID do cliente OAuth (Google Cloud Console)
 //                 Deve ser o MESMO valor do data-client_id no HTML
 // ══════════════════════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxvzt5IacFCyOcG7OHCZxJVC5uls7r7EqkNHVtxO660UeFX8PGjiyApDniYmeKkhEE/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7s29-bwepb4rarWHHPmGA0w3Y1tI5V8yxOtho-um6edQMR2oXftFgOF15Yr4THCo/exec";
 const CLIENT_ID  = "338230708641-t48ffqb04capgldl292me463fqj496i6.apps.googleusercontent.com";
 
 const LISTA_LIDERES = ["Willian Nunes", "Cidão Aparecido", "Claudecir", "Wili", "Altair", "Roseli"];
@@ -366,13 +366,17 @@ window.fazerLogout = async function() {
 
 // ══ O restante do código não mudou ══════════════════════════
 
+// ⚡ OTIMIZAÇÃO: 1 chamada retorna todos os setores de uma vez
+// ANTES: 4 chamadas em sequência (~4 segundos)
+// AGORA: 1 chamada só (~1 segundo)
 async function carregarTodosSetores() {
-  for (const setor of SETORES) {
-    try {
-      const data = await chamarScript({ acao: "listar_setor", setor });
-      operadoresPorSetor[setor] = data.operadores || [];
-    } catch { operadoresPorSetor[setor] = []; }
-  }
+  try {
+    const data = await chamarScript({ acao: "listar_setores" });
+    if (checarNaoAutorizado(data)) return;
+    if (data.setores) {
+      SETORES.forEach(s => { operadoresPorSetor[s] = data.setores[s] || []; });
+    }
+  } catch(e) { console.error("Erro ao carregar setores:", e); }
 }
 
 window.onload = function() {
@@ -545,6 +549,9 @@ const ui = {
   }
 };
 
+// ⚡ OTIMIZAÇÃO: envia todos os funcionários em 1 chamada só
+// ANTES: loop de N chamadas uma por vez (~N × 1.5s)
+// AGORA: 1 chamada com JSON de todos (~1.5s independente da quantidade)
 window.enviar = async function() {
   const lider     = liderSelecionado;
   const dataHE    = document.getElementById("dataHE").value;
@@ -554,32 +561,45 @@ window.enviar = async function() {
   if (!lider)               { alert("⚠️ Selecione o líder");                 return; }
   if (!dataHE)              { alert("⚠️ Selecione a data");                  return; }
   if (!horarioHE)           { alert("⚠️ Selecione o horário");               return; }
+
   const btn = document.getElementById("btn-enviar");
   btn.innerHTML = '<span class="spinner"></span>Enviando...'; btn.disabled = true;
-  let erros = 0;
-  for (const colab of selecionados) {
-    try {
-      const data = await chamarScript({ acao: "hora_extra", cracha: colab.cracha, nome: colab.nome, setor: colab.setor, turno: colab.turno, lider, data: dataHE, horario: horarioHE });
-      if (checarNaoAutorizado(data)) return;
-      if (data.erro) erros++;
-    } catch { erros++; }
+
+  try {
+    // Envia todos de uma vez como JSON no parâmetro "lote"
+    const data = await chamarScript({
+      acao: "hora_extra_lote",
+      lote: JSON.stringify(selecionados.map(c => ({
+        cracha: c.cracha, nome: c.nome, setor: c.setor, turno: c.turno
+      }))),
+      lider, data: dataHE, horario: horarioHE
+    });
+
+    if (checarNaoAutorizado(data)) return;
+
+    if (data.sucesso) {
+      alert(`✅ Hora extra registrada para ${data.gravados} funcionário(s)!`);
+      colaboradoresSelecionados = []; liderSelecionado = ""; setorAtivo = null;
+      document.getElementById("painel-setor").style.display = "none";
+      document.getElementById("resumo-selecionados").style.display = "none";
+      document.getElementById("resumo-tags").innerHTML = "";
+      document.querySelectorAll(".setor-chip").forEach(c => c.classList.remove("active"));
+      document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
+      document.getElementById("selected-leader-name").textContent = "Selecionar Líder";
+      document.getElementById("leader-trigger").classList.remove("open");
+      document.getElementById("leader-carousel").classList.add("hidden");
+      document.getElementById("dataHE").value = "";
+      document.getElementById("horarioHE").selectedIndex = 0;
+      carregarTodosSetores();
+    } else {
+      alert("⚠️ Erro ao registrar: " + (data.erro || "desconhecido"));
+    }
+  } catch (e) {
+    alert("❌ Erro de conexão.");
+    console.error(e);
+  } finally {
+    btn.innerHTML = "✔ Confirmar Hora Extra"; btn.disabled = false;
   }
-  btn.innerHTML = "✔ Confirmar Hora Extra"; btn.disabled = false;
-  if (erros === 0) {
-    alert(`✅ Hora extra registrada para ${selecionados.length} funcionário(s)!`);
-    colaboradoresSelecionados = []; liderSelecionado = ""; setorAtivo = null;
-    document.getElementById("painel-setor").style.display = "none";
-    document.getElementById("resumo-selecionados").style.display = "none";
-    document.getElementById("resumo-tags").innerHTML = "";
-    document.querySelectorAll(".setor-chip").forEach(c => c.classList.remove("active"));
-    document.querySelectorAll(".leader-item").forEach(i => i.classList.remove("active"));
-    document.getElementById("selected-leader-name").textContent = "Selecionar Líder";
-    document.getElementById("leader-trigger").classList.remove("open");
-    document.getElementById("leader-carousel").classList.add("hidden");
-    document.getElementById("dataHE").value = "";
-    document.getElementById("horarioHE").selectedIndex = 0;
-    carregarTodosSetores();
-  } else { alert(`⚠️ ${erros} registro(s) falharam.`); }
 };
 
 window.cadastrar = async function() {
@@ -606,4 +626,3 @@ window.cadastrar = async function() {
 </script>
 </body>
 </html>
- 
